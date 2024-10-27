@@ -177,7 +177,6 @@ VOID __cdecl main(
     length = offsetof(SCSI_PASS_THROUGH_WITH_BUFFERS, ucDataBuf) +
              sptwb.spt.DataTransferLength;
     printf("length is %zu\n", offsetof(SCSI_PASS_THROUGH_WITH_BUFFERS, ucDataBuf));
-    sptwb.spt.Cdb[0] = 0x88;
     sptwb.spt.Cdb[1] = 0;
     sptwb.spt.Cdb[14] = 0;
     sptwb.spt.Cdb[15] = 0;
@@ -198,30 +197,22 @@ VOID __cdecl main(
     sptdwb.sptd.Cdb[1] = 0;
     sptdwb.sptd.Cdb[14] = 0;
     sptdwb.sptd.Cdb[15] = 0;
-    printf("\nlba: ");
     for (int i = 2; i < 10; i++)
     {
         sptdwb.sptd.Cdb[i] = (UCHAR)((lba >> (8 * (7 - i + 2))) & 0xff);
         sptwb.spt.Cdb[i] = (UCHAR)((lba >> (8 * (7 - i + 2))) & 0xff);
-        printf("%02hhx ", sptdwb.sptd.Cdb[i]);
     }
-    printf("\nsecton_cnt: ");
     for (int i = 10; i < 14; i++)
     {
         sptdwb.sptd.Cdb[i] = (UCHAR)((sector_cnt >> (8 * (3 - i + 10))) & 0xff);
         sptwb.spt.Cdb[i] = (UCHAR)((sector_cnt >> (8 * (3 - i + 10))) & 0xff);
-        printf("%02hhx ", sptdwb.sptd.Cdb[i]);
     }
-    printf("\n");
-    printf("Data buffer length: %Xh\n\n\n",
-           sptdwb.sptd.DataTransferLength);
     if (shareMode == FILE_SHARE_WRITE)
     {
         printf("write mode\n");
         sptdwb.sptd.Cdb[0] = 0x8A;
         sptdwb.sptd.DataIn = SCSI_IOCTL_DATA_OUT;
         FillMemory(dataBuffer, sectorSize * sector_cnt, data);
-        PrintDataBuffer(sptdwb.sptd.DataBuffer, length);
         status = DeviceIoControl(fileHandle,
                                  IOCTL_SCSI_PASS_THROUGH_DIRECT,
                                  &sptdwb,
@@ -230,7 +221,6 @@ VOID __cdecl main(
                                  0,
                                  &returned,
                                  FALSE);
-        PrintStatusResults(status, returned, (SCSI_PASS_THROUGH_WITH_BUFFERS*)& sptdwb, sptdwb.sptd.DataTransferLength);
     }
     if (shareMode == FILE_SHARE_READ)
     {
