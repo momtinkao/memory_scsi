@@ -86,7 +86,7 @@ VOID __cdecl main(
     PUCHAR pUnAlignedBuffer = NULL;
     SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER sptdwb;
     SCSI_PASS_THROUGH_WITH_BUFFERS sptwb;
-    CHAR string[NAME_COUNT] = {'0'};
+    CHAR string[NAME_COUNT] = NULL;
     UCHAR data = 0;
 
     ULONG length = 0,
@@ -161,25 +161,6 @@ VOID __cdecl main(
         CloseHandle(fileHandle);
         return;
     }
-
-    ZeroMemory(&sptwb, sizeof(SCSI_PASS_THROUGH_WITH_BUFFERS));
-    sptwb.spt.Length = sizeof(SCSI_PASS_THROUGH);
-    sptwb.spt.PathId = 0;
-    sptwb.spt.TargetId = 1;
-    sptwb.spt.Lun = 0;
-    sptwb.spt.CdbLength = 16;
-    sptwb.spt.SenseInfoLength = 0;
-    sptwb.spt.DataIn = SCSI_IOCTL_DATA_IN;
-    sptwb.spt.DataTransferLength = sectorSize * sector_cnt;
-    sptwb.spt.TimeOutValue = 10;
-    sptwb.spt.DataBufferOffset =
-        offsetof(SCSI_PASS_THROUGH_WITH_BUFFERS, ucDataBuf);
-    length = offsetof(SCSI_PASS_THROUGH_WITH_BUFFERS, ucDataBuf) +
-             sptwb.spt.DataTransferLength;
-    printf("length is %zu\n", offsetof(SCSI_PASS_THROUGH_WITH_BUFFERS, ucDataBuf));
-    sptwb.spt.Cdb[1] = 0;
-    sptwb.spt.Cdb[14] = 0;
-    sptwb.spt.Cdb[15] = 0;
     dataBuffer = AllocateAlignedBuffer(sectorSize * sector_cnt, alignmentMask, &pUnAlignedBuffer);
     ZeroMemory(&sptdwb, sizeof(SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER));
     sptdwb.sptd.Length = sizeof(SCSI_PASS_THROUGH_DIRECT);
@@ -200,12 +181,10 @@ VOID __cdecl main(
     for (int i = 2; i < 10; i++)
     {
         sptdwb.sptd.Cdb[i] = (UCHAR)((lba >> (8 * (7 - i + 2))) & 0xff);
-        sptwb.spt.Cdb[i] = (UCHAR)((lba >> (8 * (7 - i + 2))) & 0xff);
     }
     for (int i = 10; i < 14; i++)
     {
         sptdwb.sptd.Cdb[i] = (UCHAR)((sector_cnt >> (8 * (3 - i + 10))) & 0xff);
-        sptwb.spt.Cdb[i] = (UCHAR)((sector_cnt >> (8 * (3 - i + 10))) & 0xff);
     }
     if (shareMode == FILE_SHARE_WRITE)
     {
@@ -221,6 +200,10 @@ VOID __cdecl main(
                                  0,
                                  &returned,
                                  FALSE);
+        if (status != 1)
+        {
+            printf("Write failed, please turn off write protection\n");
+        }
     }
     if (shareMode == FILE_SHARE_READ)
     {
@@ -236,20 +219,8 @@ VOID __cdecl main(
                                  length,
                                  &returned,
                                  FALSE);
-        //PrintStatusResults(status, returned, &sptwb, sptwb.spt.DataTransferLength);
+        // PrintStatusResults(status, returned, &sptwb, sptwb.spt.DataTransferLength);
         PrintDataBuffer(sptdwb.sptd.DataBuffer, length);
-    }
-
-    /*termial */
-    if ((argc < 2) || (argc > 3))
-    {
-        printf("Usage:  %s <port-name> [-mode]\n", argv[0]);
-        printf("Examples:\n");
-        printf("    spti g:       (open the disk class driver in SHARED READ/WRITE mode)\n");
-        printf("    spti Scsi2:   (open the miniport driver for the 3rd host adapter)\n");
-        printf("    spti Tape0 w  (open the tape class driver in SHARED WRITE mode)\n");
-        printf("    spti i: c     (open the CD-ROM class driver in SHARED READ mode)\n");
-        return;
     }
 
     if (pUnAlignedBuffer != NULL)
@@ -514,7 +485,7 @@ VOID PrintStatusResults(
                psptwb->spt.ScsiStatus, returned);
         printf("Data buffer length: %Xh\n\n\n",
                psptwb->spt.DataTransferLength);
-        //PrintDataBuffer((PUCHAR)psptwb + offsetof(SCSI_PASS_THROUGH_WITH_BUFFERS, ucDataBuf), length);
+        // PrintDataBuffer((PUCHAR)psptwb + offsetof(SCSI_PASS_THROUGH_WITH_BUFFERS, ucDataBuf), length);
         ULONG Cnt;
         printf("      00  01  02  03  04  05  06  07   08  09  0A  0B  0C  0D  0E  0F\n");
         printf("      ---------------------------------------------------------------\n");
